@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/tmsullivan7750/ProjectManager.git/static/css/main.9bd7a35e.css",
-    "main.js": "/tmsullivan7750/ProjectManager.git/static/js/main.304173a8.js",
-    "static/media/logo.png": "/tmsullivan7750/ProjectManager.git/static/media/logo.93380a94aac59d4e9b4f.png",
-    "index.html": "/tmsullivan7750/ProjectManager.git/index.html",
-    "main.9bd7a35e.css.map": "/tmsullivan7750/ProjectManager.git/static/css/main.9bd7a35e.css.map",
-    "main.304173a8.js.map": "/tmsullivan7750/ProjectManager.git/static/js/main.304173a8.js.map"
+    "main.css": "/ProjectManager/static/css/main.9bd7a35e.css",
+    "main.js": "/ProjectManager/static/js/main.080ab364.js",
+    "static/media/logo.png": "/ProjectManager/static/media/logo.93380a94aac59d4e9b4f.png",
+    "index.html": "/ProjectManager/index.html",
+    "main.9bd7a35e.css.map": "/ProjectManager/static/css/main.9bd7a35e.css.map",
+    "main.080ab364.js.map": "/ProjectManager/static/js/main.080ab364.js.map"
   },
   "entrypoints": [
     "static/css/main.9bd7a35e.css",
-    "static/js/main.304173a8.js"
+    "static/js/main.080ab364.js"
   ]
 }
