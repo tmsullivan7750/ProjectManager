@@ -62,6 +62,8 @@ import GppGoodIcon from '@mui/icons-material/GppGood';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import logo from '../components/logo.png'
 import { Image } from "react-bootstrap";
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert from '@mui/material/Alert';
 
 function Copyright(props) {
   return (
@@ -132,6 +134,10 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
     },
   }),
 );
+
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 const mdTheme = createTheme();
 
@@ -298,17 +304,14 @@ function DashboardContent() {
       });
       //Add to Auth
       createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword)
+      setSuccessPopup(true)
       handleAddNewUserClose()
       getCurrentUser()
       getUsers()
+    } else {
+      setErrorPopup(true)
+      handleAddNewUserClose()
     }
-
-    console.log(newUserName)
-    console.log(newUserEmail)
-    console.log(newUserPassword)
-    console.log(newUserPhone)
-    console.log(newUserAdmin)
-    console.log(activeUserID)
   }
 
   /*
@@ -466,6 +469,23 @@ function DashboardContent() {
     });
   }
 
+  const [errorPopup, setErrorPopup] = useState(false)
+  const [successPopup, setSuccessPopup] = useState(false)
+
+  const handleSuccessPopup = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSuccessPopup(false)
+  };
+
+  const handleErrorPopup = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setErrorPopup(false)
+  };
+
   useEffect(() => {
     getCurrentUser()
   }, [])
@@ -563,6 +583,16 @@ function DashboardContent() {
           }}
         >
           <Toolbar />
+          <Snackbar open={errorPopup} autoHideDuration={6000} onClose={handleErrorPopup}>
+              <Alert onClose={handleErrorPopup} severity="error" sx={{ width: '100%' }}>
+                Error, Please try again!
+              </Alert>
+          </Snackbar>
+          <Snackbar open={successPopup} autoHideDuration={6000} onClose={handleSuccessPopup}>
+              <Alert onClose={handleSuccessPopup} severity="success" sx={{ width: '100%' }}>
+                Success!
+              </Alert>
+          </Snackbar>
           <Container maxWidth="100%" sx={{ mt: 4, mb: 4 }} >
             <Grid container spacing={3}  >
               {/* Users */}

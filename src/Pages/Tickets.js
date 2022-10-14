@@ -210,10 +210,19 @@ function DashboardContent() {
   On click go to dashboard with clicked ticket as selected Project/Ticket and display information
   */
 
-  const handleSelectTicket = (row) => {
+  const handleSelectTicket = async(row) => {
     setSelectedTicket(row);
     console.log(selectedTicket)
-  };
+    if(selectedTicket != ""){
+      navigate("/", {
+        state: {
+          id: activeUserID,
+          project: selectedTicket.ProjectID,
+          ticket: selectedTicket
+        }
+      })
+    }
+  }
   
   //Highlight row depending on if its selected
   const isTicketSelected = (row) => row === selectedTicket;

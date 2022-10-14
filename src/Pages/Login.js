@@ -56,6 +56,7 @@ export default function Login() {
                                 </Form.Group>
                                 <Button disabled={loading} className="w-100 mt-3" type='Submit'>Login</Button>
                             </Form>
+                            <p>For login information, please <a href="https://github.com/tmsullivan7750/ProjectManager/blob/master/README.md" target="blank">click here</a></p>
                         </Card.Body>
                     </Card>
                 </div>

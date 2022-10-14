@@ -23,7 +23,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -316,8 +316,10 @@ function DashboardContent() {
   const handleEditProjectOpen = () => {
     if(selectedProject != "") {
       setOpenEditProject(true)
-      setNewProjectTitle(selectedTicket.Title)
-      setNewProjectDescription(selectedTicket.Description)
+      setNewProjectTitle(selectedProject.Title)
+      setNewProjectDescription(selectedProject.Description)
+    } else {
+      setErrorPopup(true)
     }
   }
       
@@ -327,17 +329,20 @@ function DashboardContent() {
   }
 
   async function handleEditProject() {
+
     if(newProjectDescription != "" && newProjectTitle != ""){
       await setDoc(doc(db, "Projects",selectedProject.id), {
         Title: newProjectTitle,
         Description: newProjectDescription,
       });
       console.log("Addition successful")
+      setSuccessPopup(true)
       getProjects()
       getTickets()
       handleEditProjectClose()
     } else {
       console.log("Failed to add")
+      setErrorPopup(true)
       getProjects()
       getTickets()
       handleEditProjectClose()
@@ -375,7 +380,16 @@ function DashboardContent() {
   async function handleDeleteProject () {
     if(selectedProject != ""){
       await deleteDoc(doc(db, "Projects", selectedProject.id))
+      const resultTickets = await getDocs(query(collection(db,"Ticket"), where("ProjectID", "==", selectedProject.id)))
+      resultTickets.forEach(async (u) => {
+        await deleteDoc(doc(db, "Ticket", u.id))
+      });
+      setSuccessPopup(true)
       getProjects()
+      setSelectedProject("")
+      setSelectedTicket("")
+    } else {
+      setErrorPopup(true)
     }
     
   }
@@ -424,6 +438,8 @@ function DashboardContent() {
       setNewTicketType(selectedTicket.Type)
       setNewTicketAuthor(selectedTicket.Author)
       setNewTicketProjectID(selectedTicket.ProjectID)
+    } else {
+      setErrorPopup(true)
     }
   }
     
@@ -444,10 +460,12 @@ function DashboardContent() {
         Type: newTicketType
       });
       console.log("Addition successful")
+      setSuccessPopup(true)
       getTickets()
       handleEditTicketClose()
     } else {
       console.log("Failed to add")
+      setErrorPopup(true)
       getTickets()
       handleEditTicketClose()
     }
@@ -536,9 +554,12 @@ function DashboardContent() {
   }
 
   async function handleDeleteTicket () {
-    if(selectedProject != ""){
+    if(selectedTicket != ""){
       await deleteDoc(doc(db, "Ticket", selectedTicket.id))
+      setSuccessPopup(true)
       getTickets()
+    } else {
+      setErrorPopup(true)
     }
   }
 
@@ -612,6 +633,17 @@ function DashboardContent() {
       setSelectedTicketAuthor(authorData.get("name"))
     }
 
+  const location = useLocation()
+
+  const checkForTicket= async() => {
+    const tempProject = await getDoc(doc(db,"Projects", location.state.project))
+    console.log(tempProject)
+    console.log(location.state.ticket)
+    setSelectedProject(tempProject)
+    setSelectedTicket(location.state.ticket)
+    ticketAuthor(selectedTicket.Author)
+  }
+
 
   //Logout
   async function handleLogout() {
@@ -665,15 +697,22 @@ function DashboardContent() {
       setAccessDenied(false)
     };
 
-  // Render Changes
+    const [errorPopup, setErrorPopup] = useState(false)
+    const [successPopup, setSuccessPopup] = useState(false)
 
-  const handleTicketSelectionRender = () => {
-    if(selectedProject == ""){
-      return 
-    } else {
-      return
-    }
-  }
+    const handleSuccessPopup = (event, reason) => {
+      if (reason === 'clickaway') {
+        return;
+      }
+      setSuccessPopup(false)
+    };
+
+    const handleErrorPopup = (event, reason) => {
+      if (reason === 'clickaway') {
+        return;
+      }
+      setErrorPopup(false)
+    };
 
 
       
@@ -741,8 +780,506 @@ function DashboardContent() {
     });
   }
 
+  const ticketSelectionLoading = () => {
+    if(selectedProject == ""){
+      return <Grid item xs={6}>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+          <Title>Tickets</Title>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
+            <Grid container spacing={1}>
+              <Grid item xs={8} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                  variant="body1"
+                  color="inherit"
+                  display="inline"
+                  sx={{mr: 2}}
+                  >
+                  No project selected
+                  </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Paper>
+      </Grid>
+    } else {
+      return <Grid item xs={6}>
+      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box m={1}
+              display="flex"
+              justifyContent="space-between"
+              alignItems="flex-end">
+          <Title>Tickets</Title>
+          <Box  m={1}
+              display="flex"
+              alignItems="flex-end">
+            <IconButton color="primary" aria-label="Create New Ticket" onClick={handleAddNewTicketOpen}><AddCircleRoundedIcon /></IconButton>
+            <IconButton aria-label="Edit Ticket" style={{color:'#fdd835'}} onClick={handleEditTicketOpen}><EditIcon /></IconButton>
+            <IconButton color="error" aria-label="Delete Selected Ticket"  onClick={handleDeleteTicket}><DeleteForeverIcon /></IconButton>
+            {/*Edit Ticket Dialog */}
+            <Dialog open={openEditTicket} onClose={handleEditTicketClose}>
+              <Box  m={1}
+              display="flex"
+              justifyContent="end"
+              alignItems="flex-end">
+                <IconButton aria-label="Close Ticket Edit" sx={{ height: 30 }} color="error" onClick={handleEditTicketClose}><CancelRoundedIcon /></IconButton>
+              </Box>
+              <DialogTitle color="primary">Edit Selected Ticket</DialogTitle>
+              <DialogContent>
+              <TextField
+                autoFocus
+                margin="normal"
+                id="Title"
+                label="Ticket Title"
+                type="name"
+                defaultValue = {selectedTicket.Title}
+                onChange={getTicketTitle}
+                fullWidth
+                variant="standard"
+              />
+              <TextField
+                autoFocus
+                margin="normal"
+                id="Description"
+                label="Description"
+                defaultValue = {selectedTicket.Description}
+                onChange={getTicketDescription}
+                multiline
+                rows={4}
+                fullWidth
+                variant="standard"
+              />
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label" >Type</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      defaultValue = {selectedTicket.Type}
+                      onChange={getTicketType}
+                    >
+                      <FormControlLabel value="Bug" control={<Radio />} label="Bug" />
+                      <FormControlLabel value="Issue" control={<Radio />} label="Issue" />
+                      <FormControlLabel value="Feature" control={<Radio />} label="Feature" />
+                      <FormControlLabel value="Vulnerability" control={<Radio />} label="Vulnerability" />
+                      <FormControlLabel value="Cleanup" control={<Radio />} label="Cleanup" />
+                    </RadioGroup>
+                  </FormControl>
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1  }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label">Priority</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      defaultValue = {selectedTicket.Priority}
+                      onChange={getTicketPriority}
+                    >
+                      <FormControlLabel value="Low" control={<Radio />} label="Low" />
+                      <FormControlLabel value="Medium" control={<Radio />} label="Medium" />
+                      <FormControlLabel value="High" control={<Radio />} label="High" />
+                    </RadioGroup>
+                  </FormControl>
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label">Status</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      defaultValue = {selectedTicket.Resolved}
+                      onChange={getTicketResolved}
+                    >
+                      <FormControlLabel value="Open" control={<Radio />} label="Open" />
+                      <FormControlLabel value="Closed" control={<Radio />} label="Closed" />
+                    </RadioGroup>
+                  </FormControl>
+                  {/* 
+                  <FormControl sx={{ width: "100%" , mt: 2 }}>
+                  <InputLabel id="demo-multiple-name-label">Developers</InputLabel>
+                  <Select
+                    labelId="demo-multiple-name-label"
+                    id="demo-multiple-name"
+                    multiple
+                    value={selectedDevelopers}
+                    defaultValue = {selectedDeveloperArray}
+                    onChange={handleDeveloperSelection}
+                    input={<OutlinedInput label="Developers" />}
+                    MenuProps={MenuProps}
+                  >
+                    {developers.map((info) => (
+                      <MenuItem
+                        key={info.id}
+                        value={info}
+                        style={getStyles(info, selectedDevelopers, theme)}
+                      >
+                        {info.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                  */}
+                <Box textAlign='center'>
+                  <Button sx={{ mt:2, width: "30%" }} color="success" variant="contained" onClick={handleEditTicket}>Submit</Button>
+                </Box>
+              </DialogContent>
+            </Dialog>
+            {/*Create New Ticket Dialog*/}
+            <Dialog open={openNewTicket} onClose={handleAddNewTicketClose}>
+              <Box  m={1}
+              display="flex"
+              justifyContent="end"
+              alignItems="flex-end">
+                <IconButton aria-label="Close Project Creation" sx={{ height: 30 }} color="error" onClick={handleAddNewTicketClose}><CancelRoundedIcon /></IconButton>
+              </Box>
+              <DialogTitle color="primary">Create New Ticket</DialogTitle>
+              <DialogContent>
+              <TextField
+                autoFocus
+                margin="normal"
+                id="Title"
+                label="Project Title"
+                type="name"
+                onChange={getTicketTitle}
+                fullWidth
+                variant="standard"
+              />
+              <TextField
+                autoFocus
+                margin="normal"
+                id="Description"
+                label="Description"
+                onChange={getTicketDescription}
+                multiline
+                rows={4}
+                fullWidth
+                variant="standard"
+              />
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label" >Type</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      onChange={getTicketType}
+                    >
+                      <FormControlLabel value="Bug" control={<Radio />} label="Bug" />
+                      <FormControlLabel value="Issue" control={<Radio />} label="Issue" />
+                      <FormControlLabel value="Feature" control={<Radio />} label="Feature" />
+                      <FormControlLabel value="Vulnerability" control={<Radio />} label="Vulnerability" />
+                      <FormControlLabel value="Cleanup" control={<Radio />} label="Cleanup" />
+                    </RadioGroup>
+                  </FormControl>
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1  }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label">Priority</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      onChange={getTicketPriority}
+                    >
+                      <FormControlLabel value="Low" control={<Radio />} label="Low" />
+                      <FormControlLabel value="Medium" control={<Radio />} label="Medium" />
+                      <FormControlLabel value="High" control={<Radio />} label="High" />
+                    </RadioGroup>
+                  </FormControl>
+                  <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
+                    <FormLabel id="demo-row-radio-buttons-group-label">Status</FormLabel>
+                    <RadioGroup
+                      row
+                      aria-labelledby="demo-row-radio-buttons-group-label"
+                      name="row-radio-buttons-group"
+                      onChange={getTicketResolved}
+                    >
+                      <FormControlLabel value="Open" control={<Radio />} label="Open" />
+                      <FormControlLabel value="Closed" control={<Radio />} label="Closed" />
+                    </RadioGroup>
+                  </FormControl>
+                {/*
+                <FormControl sx={{ width: "100%" , mt: 2 }}>
+                  <InputLabel id="demo-multiple-name-label">Developers</InputLabel>
+                  <Select
+                    labelId="demo-multiple-name-label"
+                    id="demo-multiple-name"
+                    multiple
+                    value={selectedDevelopers}
+                    onChange={handleDeveloperSelection}
+                    input={<OutlinedInput label="Developers" />}
+                    MenuProps={MenuProps}
+                  >
+                    {developers.map((info) => (
+                      <MenuItem
+                        key={info.id}
+                        value={info}
+                        style={getStyles(info, selectedDevelopers, theme)}
+                      >
+                        {info.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                */}
+                <Box textAlign='center'>
+                  <Button sx={{ mt:2, width: "30%" }} color="success" variant="contained" onClick={handleAddNewTicket}>Submit</Button>
+                </Box>
+              </DialogContent>
+            </Dialog>
+          </Box>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table sx={{ minWidth: 500}} aria-label="custom pagination table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Title</TableCell>
+              <TableCell align="center">Priority</TableCell>
+              <TableCell align="center">Type</TableCell>
+              <TableCell align="center">Status</TableCell>
+            </TableRow>
+          </TableHead>
+            <TableBody>
+              {(ticketRowsPerPage > 0
+                ? tickets.slice(ticketPage * ticketRowsPerPage, ticketPage * ticketRowsPerPage + ticketRowsPerPage)
+                : tickets
+              ).map((row) => (
+                <TableRow key={row.id} 
+                onClick={() => handleSelectTicket(row)}
+                selected={isTicketSelected(row)}
+                hover={true}
+                >
+                  <TableCell component="th" scope="row" style={{ width: "40%" , maxWidth: 0 , whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    overflow: "hidden"}}>
+                    {row.Title}
+                  </TableCell>
+                  <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    overflow: "hidden" }} align="center">
+                    {ticketPriority(row.Priority)}
+                  </TableCell>
+                  <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    overflow: "hidden" }} align="center">
+                    {ticketType(row.Type)}
+                  </TableCell>
+                  <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
+                    textOverflow: "ellipsis",
+                    overflow: "hidden" }} align="center">
+                    {ticketResolution(row.Resolved)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow> 
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
+                  colSpan={3}
+                  count={tickets.length}
+                  rowsPerPage={ticketRowsPerPage}
+                  page={ticketPage}
+                  SelectProps={{
+                    inputProps: {
+                      'aria-label': 'rows per page',
+                    },
+                    native: true,
+                  }}
+                  onPageChange={handleChangeTicketPage}
+                  onRowsPerPageChange={handleChangeTicketRowsPerPage}
+                  ActionsComponent={TablePaginationTicketActions}
+                />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Grid>
+    }
+  }
+
+  const projectInfoLoading = () => {
+    if(selectedProject == ""){
+      return <Grid item xs={6}>
+      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Title>Project Information</Title>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
+          <Grid container spacing={1}>
+            <Grid item xs={8} style={{ display: "flex", alignItems: "baseline" }}>
+            <Typography
+                variant="body1"
+                color="inherit"
+                display="inline"
+                sx={{mr: 2}}
+                >
+                No project selected
+                </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Paper>
+    </Grid>
+    }else{
+      return               <Grid item xs={6}>
+      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+      <Title>Project Information</Title>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
+          <Grid container spacing={1}>
+            <Grid item xs={12} style={{ display: "flex", alignItems: "baseline" }}>
+            <Typography
+              variant="h6"
+              color="inherit"
+              display="inline"
+              sx={{mr: 2}}
+              >
+              Title:  
+              </Typography>
+              <Typography
+                variant="h6"
+                color="primary"
+                display="inline"
+                >
+                   {selectedProject.Title}
+                </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography
+              variant="h6"
+              color="inherit"
+              display="inline"
+              sx={{mr: 2}}
+              >
+              Description:  
+              </Typography>
+              <Typography
+                variant="body1"
+                color="inherit"
+                display="inline"
+                >
+                  {selectedProject.Description}
+                </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Paper>
+    </Grid>
+    }
+  }
+
+  const ticketInfoLoading = () => {
+    if(selectedTicket == "") {
+      return <Grid item xs={6}>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+          <Title>Ticket Information</Title>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
+            <Grid container spacing={1}>
+              <Grid item xs={8} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                  variant="body1"
+                  color="inherit"
+                  display="inline"
+                  sx={{mr: 2}}
+                  >
+                  No ticket selected
+                  </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Paper>
+      </Grid>
+    }else{
+      console.log("False")
+      return <Grid item xs={6}>
+      <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Title>Ticket Information</Title>
+        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
+          <Grid container spacing={1}>
+            <Grid item xs={8} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                variant="h6"
+                color="inherit"
+                display="inline"
+                sx={{mr: 2}}
+                >
+                Title:  
+                </Typography>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  display="inline"
+                  >
+                    {selectedTicket.Title}
+                  </Typography>
+              </Grid>
+              <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                variant="h6"
+                color="inherit"
+                display="inline"
+                sx={{mr: 2}}
+                >
+                Status: {ticketResolution(selectedTicket.Resolved)}
+                </Typography>
+              </Grid>
+              <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                variant="h6"
+                color="inherit"
+                display="inline"
+                sx={{mr: 2}}
+                >
+                Priority: {ticketPriority(selectedTicket.Priority)}
+                </Typography>
+              </Grid>
+              <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
+              <Typography
+                variant="h6"
+                color="inherit"
+                display="inline"
+                sx={{mr: 2}}
+                >
+                Type:  {ticketType(selectedTicket.Type)}
+                </Typography>
+              </Grid>
+            <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
+            <Typography
+              variant="h6"
+              color="inherit"
+              display="inline"
+              sx={{mr: 2}}
+              >
+              Author: 
+              </Typography>
+              <Typography
+              variant="body1"
+              color="inherit"
+              display="inline"
+              >
+              {selectedTicketAuthor}
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography
+              variant="h6"
+              color="inherit"
+              display="inline"
+              sx={{ flexGrow: 1}}
+              >
+              Description: <Typography
+              variant="body1"
+              color="inherit"
+              display="inline"
+              sx={{ flexGrow: 1 }}
+              >
+              {selectedTicket.Description}
+              </Typography>
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Paper>
+    </Grid>
+    }
+  }
+
   useEffect(() => {
     getCurrentUser()
+    checkForTicket()
   }, [])
 
   useEffect(() => {
@@ -751,6 +1288,7 @@ function DashboardContent() {
     getUsers()
     getDevelopers()
   }, [activeUserID])
+
   
   return (
     <ThemeProvider theme={mdTheme}>
@@ -845,7 +1383,17 @@ function DashboardContent() {
               <Alert onClose={handleCloseAccessDenied} severity="error" sx={{ width: '100%' }}>
                 Access Denied!
               </Alert>
-            </Snackbar>
+          </Snackbar>
+          <Snackbar open={errorPopup} autoHideDuration={6000} onClose={handleErrorPopup}>
+              <Alert onClose={handleErrorPopup} severity="error" sx={{ width: '100%' }}>
+                Error, Please try again!
+              </Alert>
+          </Snackbar>
+          <Snackbar open={successPopup} autoHideDuration={6000} onClose={handleSuccessPopup}>
+              <Alert onClose={handleSuccessPopup} severity="success" sx={{ width: '100%' }}>
+                Success!
+              </Alert>
+          </Snackbar>
           <Container maxWidth="100%" sx={{ mt: 4, mb: 4 }} >
             <Grid container spacing={3}  >
               {/* Projects */}
@@ -994,429 +1542,11 @@ function DashboardContent() {
                 </Paper>
               </Grid>
               {/*Tickets*/}
-              <Grid item xs={6}>
-                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                  <Box m={1}
-                        display="flex"
-                        justifyContent="space-between"
-                        alignItems="flex-end">
-                    <Title>Tickets</Title>
-                    <Box  m={1}
-                        display="flex"
-                        alignItems="flex-end">
-                      <IconButton color="primary" aria-label="Create New Ticket" onClick={handleAddNewTicketOpen}><AddCircleRoundedIcon /></IconButton>
-                      <IconButton aria-label="Edit Ticket" style={{color:'#fdd835'}} onClick={handleEditTicketOpen}><EditIcon /></IconButton>
-                      <IconButton color="error" aria-label="Delete Selected Ticket"  onClick={handleDeleteTicket}><DeleteForeverIcon /></IconButton>
-                      {/*Edit Ticket Dialog */}
-                      <Dialog open={openEditTicket} onClose={handleEditTicketClose}>
-                        <Box  m={1}
-                        display="flex"
-                        justifyContent="end"
-                        alignItems="flex-end">
-                          <IconButton aria-label="Close Ticket Edit" sx={{ height: 30 }} color="error" onClick={handleEditTicketClose}><CancelRoundedIcon /></IconButton>
-                        </Box>
-                        <DialogTitle color="primary">Edit Selected Ticket</DialogTitle>
-                        <DialogContent>
-                        <TextField
-                          autoFocus
-                          margin="normal"
-                          id="Title"
-                          label="Ticket Title"
-                          type="name"
-                          defaultValue = {selectedTicket.Title}
-                          onChange={getTicketTitle}
-                          fullWidth
-                          variant="standard"
-                        />
-                        <TextField
-                          autoFocus
-                          margin="normal"
-                          id="Description"
-                          label="Description"
-                          defaultValue = {selectedTicket.Description}
-                          onChange={getTicketDescription}
-                          multiline
-                          rows={4}
-                          fullWidth
-                          variant="standard"
-                        />
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label" >Type</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                defaultValue = {selectedTicket.Type}
-                                onChange={getTicketType}
-                              >
-                                <FormControlLabel value="Bug" control={<Radio />} label="Bug" />
-                                <FormControlLabel value="Issue" control={<Radio />} label="Issue" />
-                                <FormControlLabel value="Feature" control={<Radio />} label="Feature" />
-                                <FormControlLabel value="Vulnerability" control={<Radio />} label="Vulnerability" />
-                                <FormControlLabel value="Cleanup" control={<Radio />} label="Cleanup" />
-                              </RadioGroup>
-                            </FormControl>
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1  }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label">Priority</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                defaultValue = {selectedTicket.Priority}
-                                onChange={getTicketPriority}
-                              >
-                                <FormControlLabel value="Low" control={<Radio />} label="Low" />
-                                <FormControlLabel value="Medium" control={<Radio />} label="Medium" />
-                                <FormControlLabel value="High" control={<Radio />} label="High" />
-                              </RadioGroup>
-                            </FormControl>
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label">Status</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                defaultValue = {selectedTicket.Resolved}
-                                onChange={getTicketResolved}
-                              >
-                                <FormControlLabel value="Open" control={<Radio />} label="Open" />
-                                <FormControlLabel value="Closed" control={<Radio />} label="Closed" />
-                              </RadioGroup>
-                            </FormControl>
-                            {/* 
-                            <FormControl sx={{ width: "100%" , mt: 2 }}>
-                            <InputLabel id="demo-multiple-name-label">Developers</InputLabel>
-                            <Select
-                              labelId="demo-multiple-name-label"
-                              id="demo-multiple-name"
-                              multiple
-                              value={selectedDevelopers}
-                              defaultValue = {selectedDeveloperArray}
-                              onChange={handleDeveloperSelection}
-                              input={<OutlinedInput label="Developers" />}
-                              MenuProps={MenuProps}
-                            >
-                              {developers.map((info) => (
-                                <MenuItem
-                                  key={info.id}
-                                  value={info}
-                                  style={getStyles(info, selectedDevelopers, theme)}
-                                >
-                                  {info.name}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                            */}
-                          <Box textAlign='center'>
-                            <Button sx={{ mt:2, width: "30%" }} color="success" variant="contained" onClick={handleEditTicket}>Submit</Button>
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                      {/*Create New Ticket Dialog*/}
-                      <Dialog open={openNewTicket} onClose={handleAddNewTicketClose}>
-                        <Box  m={1}
-                        display="flex"
-                        justifyContent="end"
-                        alignItems="flex-end">
-                          <IconButton aria-label="Close Project Creation" sx={{ height: 30 }} color="error" onClick={handleAddNewTicketClose}><CancelRoundedIcon /></IconButton>
-                        </Box>
-                        <DialogTitle color="primary">Create New Ticket</DialogTitle>
-                        <DialogContent>
-                        <TextField
-                          autoFocus
-                          margin="normal"
-                          id="Title"
-                          label="Project Title"
-                          type="name"
-                          onChange={getTicketTitle}
-                          fullWidth
-                          variant="standard"
-                        />
-                        <TextField
-                          autoFocus
-                          margin="normal"
-                          id="Description"
-                          label="Description"
-                          onChange={getTicketDescription}
-                          multiline
-                          rows={4}
-                          fullWidth
-                          variant="standard"
-                        />
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label" >Type</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                onChange={getTicketType}
-                              >
-                                <FormControlLabel value="Bug" control={<Radio />} label="Bug" />
-                                <FormControlLabel value="Issue" control={<Radio />} label="Issue" />
-                                <FormControlLabel value="Feature" control={<Radio />} label="Feature" />
-                                <FormControlLabel value="Vulnerability" control={<Radio />} label="Vulnerability" />
-                                <FormControlLabel value="Cleanup" control={<Radio />} label="Cleanup" />
-                              </RadioGroup>
-                            </FormControl>
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1  }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label">Priority</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                onChange={getTicketPriority}
-                              >
-                                <FormControlLabel value="Low" control={<Radio />} label="Low" />
-                                <FormControlLabel value="Medium" control={<Radio />} label="Medium" />
-                                <FormControlLabel value="High" control={<Radio />} label="High" />
-                              </RadioGroup>
-                            </FormControl>
-                            <FormControl sx={{ width: "100%" , mt: 1, mb: 1 }}>
-                              <FormLabel id="demo-row-radio-buttons-group-label">Status</FormLabel>
-                              <RadioGroup
-                                row
-                                aria-labelledby="demo-row-radio-buttons-group-label"
-                                name="row-radio-buttons-group"
-                                onChange={getTicketResolved}
-                              >
-                                <FormControlLabel value="Open" control={<Radio />} label="Open" />
-                                <FormControlLabel value="Closed" control={<Radio />} label="Closed" />
-                              </RadioGroup>
-                            </FormControl>
-                          {/*
-                          <FormControl sx={{ width: "100%" , mt: 2 }}>
-                            <InputLabel id="demo-multiple-name-label">Developers</InputLabel>
-                            <Select
-                              labelId="demo-multiple-name-label"
-                              id="demo-multiple-name"
-                              multiple
-                              value={selectedDevelopers}
-                              onChange={handleDeveloperSelection}
-                              input={<OutlinedInput label="Developers" />}
-                              MenuProps={MenuProps}
-                            >
-                              {developers.map((info) => (
-                                <MenuItem
-                                  key={info.id}
-                                  value={info}
-                                  style={getStyles(info, selectedDevelopers, theme)}
-                                >
-                                  {info.name}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          */}
-                          <Box textAlign='center'>
-                            <Button sx={{ mt:2, width: "30%" }} color="success" variant="contained" onClick={handleAddNewTicket}>Submit</Button>
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </Box>
-                  </Box>
-                  <TableContainer component={Paper}>
-                    <Table sx={{ minWidth: 500}} aria-label="custom pagination table">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Title</TableCell>
-                        <TableCell align="center">Priority</TableCell>
-                        <TableCell align="center">Type</TableCell>
-                        <TableCell align="center">Status</TableCell>
-                      </TableRow>
-                    </TableHead>
-                      <TableBody>
-                        {(ticketRowsPerPage > 0
-                          ? tickets.slice(ticketPage * ticketRowsPerPage, ticketPage * ticketRowsPerPage + ticketRowsPerPage)
-                          : tickets
-                        ).map((row) => (
-                          <TableRow key={row.id} 
-                          onClick={() => handleSelectTicket(row)}
-                          selected={isTicketSelected(row)}
-                          hover={true}
-                          >
-                            <TableCell component="th" scope="row" style={{ width: "40%" , maxWidth: 0 , whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              overflow: "hidden"}}>
-                              {row.Title}
-                            </TableCell>
-                            <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              overflow: "hidden" }} align="center">
-                              {ticketPriority(row.Priority)}
-                            </TableCell>
-                            <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              overflow: "hidden" }} align="center">
-                              {ticketType(row.Type)}
-                            </TableCell>
-                            <TableCell style={{ width: "20%" , maxWidth: 0 , whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              overflow: "hidden" }} align="center">
-                              {ticketResolution(row.Resolved)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow> 
-                          <TablePagination
-                            rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
-                            colSpan={3}
-                            count={tickets.length}
-                            rowsPerPage={ticketRowsPerPage}
-                            page={ticketPage}
-                            SelectProps={{
-                              inputProps: {
-                                'aria-label': 'rows per page',
-                              },
-                              native: true,
-                            }}
-                            onPageChange={handleChangeTicketPage}
-                            onRowsPerPageChange={handleChangeTicketRowsPerPage}
-                            ActionsComponent={TablePaginationTicketActions}
-                          />
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </TableContainer>
-                </Paper>
-              </Grid>
+              {ticketSelectionLoading()}
               {/* Project Information */}
-              <Grid item xs={6}>
-                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                <Title>Project Information</Title>
-                  <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
-                    <Grid container spacing={1}>
-                      <Grid item xs={12} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Title:  
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          color="primary"
-                          display="inline"
-                          >
-                             {selectedProject.Title}
-                          </Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Description:  
-                        </Typography>
-                        <Typography
-                          variant="body1"
-                          color="inherit"
-                          display="inline"
-                          >
-                            {selectedProject.Description}
-                          </Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Paper>
-              </Grid>
+              {projectInfoLoading()}
               {/*Ticket Information*/}
-              <Grid item xs={6}>
-                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                  <Title>Ticket Information</Title>
-                  <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>   
-                    <Grid container spacing={1}>
-                    <Grid item xs={8} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Title:  
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          color="primary"
-                          display="inline"
-                          >
-                             {selectedTicket.Title}
-                          </Typography>
-                      </Grid>
-                      <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Status: {ticketResolution(selectedTicket.Resolved)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Priority: {ticketPriority(selectedTicket.Priority)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Type:  {ticketType(selectedTicket.Type)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4} style={{ display: "flex", alignItems: "baseline" }}>
-                      <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{mr: 2}}
-                        >
-                        Author: 
-                        </Typography>
-                        <Typography
-                        variant="body1"
-                        color="inherit"
-                        display="inline"
-                        >
-                        {selectedTicketAuthor}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography
-                        variant="h6"
-                        color="inherit"
-                        display="inline"
-                        sx={{ flexGrow: 1}}
-                        >
-                        Description: <Typography
-                        variant="body1"
-                        color="inherit"
-                        display="inline"
-                        sx={{ flexGrow: 1 }}
-                        >
-                        {selectedTicket.Description}
-                        </Typography>
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Paper>
-              </Grid>
+              {ticketInfoLoading()}
             </Grid>
             <Copyright sx={{ pt: 4 }} />
           </Container>
