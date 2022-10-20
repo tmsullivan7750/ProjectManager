@@ -297,7 +297,6 @@ function DashboardContent() {
     setSelectedTicket("")
     setSelectedTicketAuthor("")
     getTickets()
-    console.log(selectedProject)
   };
 
   //Highlight row depending on if its selected
@@ -628,20 +627,23 @@ function DashboardContent() {
     const [selectedTicketAuthor, setSelectedTicketAuthor] = React.useState("");
 
     const ticketAuthor = async (id) => {
-
-      const authorData = await getDoc(doc(db,"Users", id))
-      setSelectedTicketAuthor(authorData.get("name"))
+      if(selectedTicket != []){
+        const authorData = await getDoc(doc(db,"Users", id))
+        setSelectedTicketAuthor(authorData.get("name"))
+      }
     }
 
   const location = useLocation()
 
-  const checkForTicket= async() => {
-    const tempProject = await getDoc(doc(db,"Projects", location.state.project))
-    console.log(tempProject)
-    console.log(location.state.ticket)
-    setSelectedProject(tempProject)
-    setSelectedTicket(location.state.ticket)
-    ticketAuthor(selectedTicket.Author)
+  const checkForTicket = async () => {
+    if(location.state.ticket != null){
+      setSelectedTicket(location.state.ticket) 
+      const tempProject = await getDoc(doc(db,"Projects", location.state.ticket.ProjectID))
+      var tempFinalProject = tempProject.data()
+      setSelectedProject(tempFinalProject)
+      console.log(selectedProject)
+      getTicketsByProjectID()
+    }
   }
 
 
@@ -744,6 +746,13 @@ function DashboardContent() {
     setTicketPage(0);
   };
 
+  const getTicketsByProjectID = async () => {
+    if(selectedProject != []){
+      const ticketData = await getDocs(query(ticketCollectionRef, where("ProjectID", "==", location.state.ticket.ProjectID)))
+      setTickets(ticketData.docs.map((doc) => ({...doc.data(), id: doc.id})))
+    }
+  }
+
   const getTickets = async () => {
     if(selectedProject != []){
       const ticketData = await getDocs(query(ticketCollectionRef, where("ProjectID", "==", selectedProject.id)))
@@ -774,7 +783,6 @@ function DashboardContent() {
     const loggedUser = auth.currentUser
     const loggedUserData = await getDocs(query(developerCollectionRef, where("email", "==", loggedUser.email)))
     loggedUserData.forEach((doc) => {
-      console.log(doc.id, " => ", doc.data());
       setActiveUserID(doc.id)
       setActiveUser(doc.data())
     });
@@ -1279,10 +1287,11 @@ function DashboardContent() {
 
   useEffect(() => {
     getCurrentUser()
-    checkForTicket()
   }, [])
 
   useEffect(() => {
+    checkForTicket()
+    ticketAuthor(selectedTicket.Author)
     getProjects()
     getTickets()
     getUsers()
