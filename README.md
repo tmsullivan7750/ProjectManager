@@ -20,7 +20,7 @@ Email: dev@dev.com <br />
 Password: dev123
 
 # Functions
-List of all functions of each age of the Project Manager.
+List of all functions of each page of the Project Manager.
 
 ## Login
 Allows the user to login to the project manager using their email and password. There is not option to sign up because I left it up to the Administrator to add new users to the project manager.
